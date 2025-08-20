@@ -1,4 +1,4 @@
-package io.nexus;
+package io.nexus.jetbrainsconfigsetup;
 
 import lombok.extern.slf4j.Slf4j;
 
