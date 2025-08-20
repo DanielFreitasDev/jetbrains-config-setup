@@ -1,6 +1,6 @@
 package io.nexus;
 
-import lombok.extern.log4j.Log4j2;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -12,7 +12,7 @@ import java.util.List;
  * Classe responsável por criar uma estrutura de diretórios pré-definida.
  * Utiliza Log4j2 para logging robusto.
  */
-@Log4j2
+@Slf4j
 public class GerenciadorDePastas {
 
     private static final List<String> NOMES_PASTAS = List.of(
