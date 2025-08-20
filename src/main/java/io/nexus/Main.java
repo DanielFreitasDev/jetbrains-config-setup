@@ -16,13 +16,13 @@ public class Main {
             log.info("Caminho raiz fornecido via argumento: '{}'", caminhoRaiz);
         } else {
             // Se nenhum argumento for fornecido, usa o diretório de execução atual.
-            // System.getProperty("user.dir") retorna o diretório onde o comando java foi executado.
             caminhoRaiz = System.getProperty("user.dir");
             log.warn("Nenhum argumento válido fornecido. Usando o diretório de execução atual como caminho raiz: '{}'", caminhoRaiz);
         }
 
         GerenciadorDePastas gerenciador = new GerenciadorDePastas();
-        gerenciador.criarEstrutura(caminhoRaiz);
+        // O metodo agora reflete melhor o fluxo completo.
+        gerenciador.criarEstruturaEConfigurarFerramentas(caminhoRaiz);
 
         log.info("Aplicação finalizada com sucesso.");
     }

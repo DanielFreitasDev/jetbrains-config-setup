@@ -24,13 +24,20 @@ public class GerenciadorDePastas {
     );
 
     /**
-     * Cria a estrutura de pastas padrão dentro do caminho raiz fornecido.
+     * Cria a estrutura de pastas padrão e, em seguida, invoca a configuração das ferramentas.
      *
-     * @param caminhoRaiz O caminho base onde as novas pastas serão criadas.
+     * @param caminhoRaiz O caminho base onde a estrutura será criada.
      */
-    public void criarEstrutura(String caminhoRaiz) {
-        log.info("Iniciando verificação e criação da estrutura de pastas em '{}'", caminhoRaiz);
+    public void criarEstruturaEConfigurarFerramentas(String caminhoRaiz) {
+        criarEstruturaBase(caminhoRaiz);
 
+        // Após criar a estrutura, chama o gerenciador de ferramentas.
+        GerenciadorDeFerramentas gerenciadorDeFerramentas = new GerenciadorDeFerramentas();
+        gerenciadorDeFerramentas.configurar(caminhoRaiz);
+    }
+
+    private void criarEstruturaBase(String caminhoRaiz) {
+        log.info("Iniciando verificação e criação da estrutura de pastas em '{}'", caminhoRaiz);
         Path raiz = Paths.get(caminhoRaiz);
 
         for (String nomePasta : NOMES_PASTAS) {
@@ -44,6 +51,6 @@ public class GerenciadorDePastas {
                 log.error("Falha ao criar o diretório '{}'", nomePasta, e);
             }
         }
-        log.info("Processo de criação da estrutura de pastas finalizado.");
+        log.info("Criação da estrutura de pastas finalizada.");
     }
 }

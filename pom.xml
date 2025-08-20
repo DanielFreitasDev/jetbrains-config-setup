@@ -15,6 +15,7 @@
         <log4j.version>2.25.1</log4j.version>
         <slf4j.version>2.0.17</slf4j.version>
         <lombok.version>1.18.38</lombok.version>
+        <commons-compress.version>1.28.0</commons-compress.version>
         <maven-shade-plugin.version>3.6.0</maven-shade-plugin.version>
     </properties>
 
@@ -46,6 +47,11 @@
                 <artifactId>log4j-api</artifactId>
                 <version>${log4j.version}</version>
             </dependency>
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-compress</artifactId>
+                <version>${commons-compress.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -69,6 +75,10 @@
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-compress</artifactId>
         </dependency>
     </dependencies>
 
