@@ -20,6 +20,7 @@ import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
@@ -36,8 +37,14 @@ public class GerenciadorDeInstalacao {
 
     private static final String DIRETORIO_INSTALADORES = "instaladores";
     private static final String DIRETORIO_BINARIOS = "binarios";
+    private static final String DIRETORIO_CONFIGURACOES = "configuracoes";
+    private static final String DIRETORIO_ATALHOS = "atalhos";
+
     private static final Pattern VERSAO_PATTERN = Pattern.compile("(\\d{4}\\.\\d+(\\.\\d+)?)");
     private static final Gson gson = new Gson();
+    private final Scanner scanner = new Scanner(System.in);
+    private final GerenciadorDeConfiguracao gerenciadorDeConfiguracao = new GerenciadorDeConfiguracao();
+
 
     public void instalar(String caminhoRaiz) {
         Path pastaInstaladores = Paths.get(caminhoRaiz, DIRETORIO_INSTALADORES);
@@ -56,14 +63,20 @@ public class GerenciadorDeInstalacao {
                 return;
             }
 
-            List<Path> arquivosSelecionados = exibirMenuDeSelecao(arquivosTarGz);
-            if (arquivosSelecionados.isEmpty()) {
-                log.info("Nenhum arquivo selecionado para instalação.");
+            List<IdeInfo> idesParaInstalar = exibirMenuDeSelecao(arquivosTarGz, caminhoRaiz);
+            if (idesParaInstalar.isEmpty()) {
+                log.info("Nenhuma IDE selecionada para instalação.");
                 return;
             }
 
-            for (Path arquivo : arquivosSelecionados) {
-                processarArquivo(arquivo, Paths.get(caminhoRaiz, DIRETORIO_BINARIOS));
+            boolean gerarAtalhos = perguntarSobreAtalhos();
+            Path diretorioAtalhos = null;
+            if (gerarAtalhos) {
+                diretorioAtalhos = escolherLocalAtalhos(caminhoRaiz);
+            }
+
+            for (IdeInfo ide : idesParaInstalar) {
+                processarArquivo(ide, caminhoRaiz, diretorioAtalhos);
             }
 
         } catch (IOException e) {
@@ -71,7 +84,7 @@ public class GerenciadorDeInstalacao {
         }
     }
 
-    private List<Path> exibirMenuDeSelecao(List<Path> arquivos) {
+    private List<IdeInfo> exibirMenuDeSelecao(List<Path> arquivos, String caminhoRaiz) {
         System.out.println(ansi().fg(Ansi.Color.CYAN).a("\n--- Menu de Instalação de IDEs JetBrains ---").reset());
         System.out.println("Foram encontrados os seguintes arquivos em sua pasta 'instaladores':\n");
 
@@ -83,16 +96,19 @@ public class GerenciadorDeInstalacao {
         System.out.println(ansi().fg(Ansi.Color.YELLOW).a(String.format("  [%2d] ", 0)).reset().fg(Ansi.Color.RED).a("Sair").reset());
         System.out.print("\nDigite os números dos arquivos que deseja instalar (separados por vírgula) ou uma das opções: ");
 
-        try (Scanner scanner = new Scanner(System.in)) {
-            String input = scanner.nextLine().trim();
+        String input = scanner.nextLine().trim();
 
-            if (input.equals(String.valueOf(arquivos.size() + 1))) {
-                return arquivos;
-            }
-            if (input.equals("0")) {
-                return Collections.emptyList();
-            }
+        if (input.equals(String.valueOf(arquivos.size() + 1))) {
+            return arquivos.stream()
+                    .map(this::extrairIdeInfo)
+                    .filter(ide -> confirmarSubstituicao(ide, caminhoRaiz))
+                    .collect(Collectors.toList());
+        }
+        if (input.equals("0")) {
+            return Collections.emptyList();
+        }
 
+        try {
             return Arrays.stream(input.split(","))
                     .map(String::trim)
                     .filter(s -> !s.isEmpty())
@@ -100,26 +116,92 @@ public class GerenciadorDeInstalacao {
                     .filter(i -> i > 0 && i <= arquivos.size())
                     .mapToObj(i -> arquivos.get(i - 1))
                     .distinct()
+                    .map(this::extrairIdeInfo)
+                    .filter(ide -> confirmarSubstituicao(ide, caminhoRaiz))
                     .collect(Collectors.toList());
-
         } catch (NumberFormatException e) {
             System.out.println(ansi().fg(Ansi.Color.RED).a("Entrada inválida. Por favor, insira apenas números.").reset());
             return Collections.emptyList();
         }
     }
 
-    private void processarArquivo(Path arquivo, Path pastaBinarios) {
-        log.info("Processando arquivo: {}", arquivo.getFileName());
-        IdeInfo ideInfo = extrairIdeInfo(arquivo);
-        Path diretorioDestino = pastaBinarios.resolve(ideInfo.getNome()).resolve(ideInfo.getVersao());
+    private boolean confirmarSubstituicao(IdeInfo ideInfo, String caminhoRaiz) {
+        Path diretorioBinario = Paths.get(caminhoRaiz, DIRETORIO_BINARIOS, ideInfo.getNome(), ideInfo.getVersao());
+        if (Files.exists(diretorioBinario)) {
+            System.out.print(ansi().fg(Ansi.Color.YELLOW).a("A IDE " + ideInfo.getNome() + " versão " + ideInfo.getVersao() + " já existe. Deseja substituir? (S/n): ").reset());
+            String resposta = scanner.nextLine().trim().toLowerCase();
+            if ("n".equals(resposta)) {
+                System.out.println("Instalação de " + ideInfo.getNome() + " ignorada.");
+                return false;
+            }
+            // Se for substituir, limpa os diretórios
+            try {
+                Path diretorioConfig = Paths.get(caminhoRaiz, DIRETORIO_CONFIGURACOES, ideInfo.getNome(), ideInfo.getVersao());
+                if (Files.exists(diretorioBinario)) {
+                    try (Stream<Path> walk = Files.walk(diretorioBinario)) {
+                        walk.sorted(Comparator.reverseOrder()).forEach(path -> {
+                            try {
+                                Files.delete(path);
+                            } catch (IOException e) {
+                                log.error("Falha ao deletar {}", path, e);
+                            }
+                        });
+                    }
+                }
+                if (Files.exists(diretorioConfig)) {
+                    try (Stream<Path> walk = Files.walk(diretorioConfig)) {
+                        walk.sorted(Comparator.reverseOrder()).forEach(path -> {
+                            try {
+                                Files.delete(path);
+                            } catch (IOException e) {
+                                log.error("Falha ao deletar {}", path, e);
+                            }
+                        });
+                    }
+                }
+                log.info("Diretórios antigos de {} removidos.", ideInfo.getNome());
+            } catch (IOException e) {
+                log.error("Falha ao limpar diretórios antigos para {}", ideInfo.getNome(), e);
+                System.out.println(ansi().fg(Ansi.Color.RED).a("Erro ao limpar instalação existente. Verifique os logs.").reset());
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean perguntarSobreAtalhos() {
+        System.out.print(ansi().fg(Ansi.Color.CYAN).a("\nDeseja gerar atalhos para as IDEs selecionadas? (S/n): ").reset());
+        String resposta = scanner.nextLine().trim().toLowerCase();
+        return !"n".equals(resposta);
+    }
+
+    private Path escolherLocalAtalhos(String caminhoRaiz) {
+        System.out.println(ansi().fg(Ansi.Color.CYAN).a("\nOnde você deseja criar os atalhos?").reset());
+        System.out.println("  [1] Na pasta 'atalhos' do projeto (" + Paths.get(caminhoRaiz, DIRETORIO_ATALHOS).toAbsolutePath() + ")");
+        System.out.println("  [2] No diretório de aplicações do sistema (~/.local/share/applications/)");
+        System.out.print("Escolha uma opção: ");
+        String escolha = scanner.nextLine().trim();
+
+        if ("2".equals(escolha)) {
+            return Paths.get(System.getProperty("user.home"), ".local", "share", "applications");
+        }
+        return Paths.get(caminhoRaiz, DIRETORIO_ATALHOS);
+    }
+
+    private void processarArquivo(IdeInfo ideInfo, String caminhoRaiz, Path diretorioAtalhos) {
+        log.info("Processando arquivo: {}", ideInfo.getCaminhoArquivo().getFileName());
 
         try {
-            Files.createDirectories(diretorioDestino);
-            log.info("Descompactando {} para {}", arquivo.getFileName(), diretorioDestino);
-            descompactarTarGz(arquivo, diretorioDestino);
-            log.info("IDE {} versão {} instalada com sucesso em {}", ideInfo.getNome(), ideInfo.getVersao(), diretorioDestino);
+            Files.createDirectories(ideInfo.getCaminhoBinario());
+            System.out.println(ansi().fg(Ansi.Color.BLUE).a("-> Descompactando " + ideInfo.getNome() + " para " + ideInfo.getCaminhoBinario()).reset());
+            descompactarTarGz(ideInfo.getCaminhoArquivo(), ideInfo.getCaminhoBinario());
+            System.out.println(ansi().fg(Ansi.Color.GREEN).a("✓ IDE " + ideInfo.getNome() + " versão " + ideInfo.getVersao() + " instalada com sucesso.").reset());
+
+            // Chama o gerenciador de configuração
+            gerenciadorDeConfiguracao.configurarIde(ideInfo, caminhoRaiz, diretorioAtalhos);
+
         } catch (IOException e) {
-            log.error("Falha ao criar diretório ou descompactar o arquivo {}", arquivo.getFileName(), e);
+            log.error("Falha ao criar diretório ou descompactar o arquivo {}", ideInfo.getCaminhoArquivo().getFileName(), e);
         }
     }
 
@@ -181,8 +263,6 @@ public class GerenciadorDeInstalacao {
 
             TarArchiveEntry entry;
             while ((entry = tarIn.getNextEntry()) != null) {
-                // O conteúdo do tar.gz geralmente está dentro de uma pasta raiz, ex: "idea-IU-231.8109.175/".
-                // Precisamos remover esse primeiro nível para descompactar o conteúdo diretamente.
                 String entryName = entry.getName();
                 int firstSlash = entryName.indexOf('/');
                 if (firstSlash != -1) {
