@@ -1,10 +1,12 @@
 package io.nexus.jetbrainsconfigsetup;
 
 import lombok.extern.slf4j.Slf4j;
+import org.fusesource.jansi.AnsiConsole;
 
 @Slf4j
 public class Main {
     public static void main(String[] args) {
+        AnsiConsole.systemInstall();
         log.info("Aplicação iniciada.");
 
         String caminhoRaiz;
@@ -21,9 +23,9 @@ public class Main {
         }
 
         GerenciadorDePastas gerenciador = new GerenciadorDePastas();
-        // O metodo agora reflete melhor o fluxo completo.
-        gerenciador.criarEstruturaEConfigurarFerramentas(caminhoRaiz);
+        gerenciador.criarEstruturaEConfigurar(caminhoRaiz);
 
         log.info("Aplicação finalizada com sucesso.");
+        AnsiConsole.systemUninstall();
     }
 }

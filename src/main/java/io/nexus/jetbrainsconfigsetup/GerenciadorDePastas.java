@@ -28,12 +28,16 @@ public class GerenciadorDePastas {
      *
      * @param caminhoRaiz O caminho base onde a estrutura será criada.
      */
-    public void criarEstruturaEConfigurarFerramentas(String caminhoRaiz) {
+    public void criarEstruturaEConfigurar(String caminhoRaiz) {
         criarEstruturaBase(caminhoRaiz);
 
         // Após criar a estrutura, chama o gerenciador de ferramentas.
         GerenciadorDeFerramentas gerenciadorDeFerramentas = new GerenciadorDeFerramentas();
         gerenciadorDeFerramentas.configurar(caminhoRaiz);
+
+        // Chama o novo gerenciador de instalação
+        GerenciadorDeInstalacao gerenciadorDeInstalacao = new GerenciadorDeInstalacao();
+        gerenciadorDeInstalacao.instalar(caminhoRaiz);
     }
 
     private void criarEstruturaBase(String caminhoRaiz) {
