@@ -9,6 +9,22 @@ public class Main {
         AnsiConsole.systemInstall();
         log.info("Aplicação iniciada.");
 
+        String caminhoRaiz = getRootPath(args);
+
+        GerenciadorDePastas gerenciadorDePastas = new GerenciadorDePastas();
+        gerenciadorDePastas.criarEstrutura(caminhoRaiz);
+
+        GerenciadorDeFerramentas gerenciadorDeFerramentas = new GerenciadorDeFerramentas();
+        gerenciadorDeFerramentas.configurar(caminhoRaiz);
+
+        GerenciadorDeInstalacao gerenciadorDeInstalacao = new GerenciadorDeInstalacao();
+        gerenciadorDeInstalacao.instalar(caminhoRaiz);
+
+        log.info("Aplicação finalizada com sucesso.");
+        AnsiConsole.systemUninstall();
+    }
+
+    private static String getRootPath(String[] args) {
         String caminhoRaiz;
 
         // Verifica se um argumento de linha de comando foi fornecido.
@@ -21,11 +37,6 @@ public class Main {
             caminhoRaiz = System.getProperty("user.dir");
             log.warn("Nenhum argumento válido fornecido. Usando o diretório de execução atual como caminho raiz: '{}'", caminhoRaiz);
         }
-
-        GerenciadorDePastas gerenciador = new GerenciadorDePastas();
-        gerenciador.criarEstruturaEConfigurar(caminhoRaiz);
-
-        log.info("Aplicação finalizada com sucesso.");
-        AnsiConsole.systemUninstall();
+        return caminhoRaiz;
     }
 }
