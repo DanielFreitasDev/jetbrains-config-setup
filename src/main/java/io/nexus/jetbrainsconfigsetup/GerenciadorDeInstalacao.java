@@ -17,14 +17,17 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.attribute.PosixFilePermission;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Scanner;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -281,7 +284,45 @@ public class GerenciadorDeInstalacao {
                         tarIn.transferTo(out);
                     }
                 }
+
+                // Preserva as permissões do arquivo, se não estiver no Windows
+                if (!System.getProperty("os.name").toLowerCase().startsWith("windows")) {
+                    try {
+                        int mode = entry.getMode();
+                        Set<PosixFilePermission> permissions = modeToPermissionsSet(mode);
+                        Files.setPosixFilePermissions(destinoArquivo, permissions);
+                    } catch (UnsupportedOperationException e) {
+                        log.warn("Não foi possível definir as permissões POSIX para {}: {}", destinoArquivo, e.getMessage());
+                    }
+                }
             }
         }
+    }
+
+    /**
+     * Converte um modo de permissão numérico (estilo Unix) para um Set de PosixFilePermission.
+     *
+     * @param mode O modo numérico do arquivo.
+     * @return Um Set contendo as permissões POSIX correspondentes.
+     */
+    private Set<PosixFilePermission> modeToPermissionsSet(int mode) {
+        Set<PosixFilePermission> permissions = new HashSet<>();
+
+        // Permissões do Dono (Owner)
+        if ((mode & 256) > 0) permissions.add(PosixFilePermission.OWNER_READ);
+        if ((mode & 128) > 0) permissions.add(PosixFilePermission.OWNER_WRITE);
+        if ((mode & 64) > 0) permissions.add(PosixFilePermission.OWNER_EXECUTE);
+
+        // Permissões do Grupo (Group)
+        if ((mode & 32) > 0) permissions.add(PosixFilePermission.GROUP_READ);
+        if ((mode & 16) > 0) permissions.add(PosixFilePermission.GROUP_WRITE);
+        if ((mode & 8) > 0) permissions.add(PosixFilePermission.GROUP_EXECUTE);
+
+        // Permissões de Outros (Others)
+        if ((mode & 4) > 0) permissions.add(PosixFilePermission.OTHERS_READ);
+        if ((mode & 2) > 0) permissions.add(PosixFilePermission.OTHERS_WRITE);
+        if ((mode & 1) > 0) permissions.add(PosixFilePermission.OTHERS_EXECUTE);
+
+        return permissions;
     }
 }
