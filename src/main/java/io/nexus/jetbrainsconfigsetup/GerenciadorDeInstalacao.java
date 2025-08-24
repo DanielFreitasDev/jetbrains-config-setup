@@ -137,28 +137,8 @@ public class GerenciadorDeInstalacao {
             // Se for substituir, limpa os diretórios
             try {
                 Path diretorioConfig = Paths.get(caminhoRaiz, DIRETORIO_CONFIGURACOES, ideInfo.getNome(), ideInfo.getVersao());
-                if (Files.exists(diretorioBinario)) {
-                    try (Stream<Path> walk = Files.walk(diretorioBinario)) {
-                        walk.sorted(Comparator.reverseOrder()).forEach(path -> {
-                            try {
-                                Files.delete(path);
-                            } catch (IOException e) {
-                                log.error("Falha ao deletar {}", path, e);
-                            }
-                        });
-                    }
-                }
-                if (Files.exists(diretorioConfig)) {
-                    try (Stream<Path> walk = Files.walk(diretorioConfig)) {
-                        walk.sorted(Comparator.reverseOrder()).forEach(path -> {
-                            try {
-                                Files.delete(path);
-                            } catch (IOException e) {
-                                log.error("Falha ao deletar {}", path, e);
-                            }
-                        });
-                    }
-                }
+                verificarExistenciaDiretorio(diretorioBinario);
+                verificarExistenciaDiretorio(diretorioConfig);
                 log.info("Diretórios antigos de {} removidos.", ideInfo.getNome());
             } catch (IOException e) {
                 log.error("Falha ao limpar diretórios antigos para {}", ideInfo.getNome(), e);
@@ -169,6 +149,20 @@ public class GerenciadorDeInstalacao {
         return true;
     }
 
+    private void verificarExistenciaDiretorio(Path diretorio) throws IOException {
+        if (Files.exists(diretorio)) {
+            try (Stream<Path> walk = Files.walk(diretorio)) {
+                walk.sorted(Comparator.reverseOrder()).forEach(path -> {
+                    try {
+                        Files.delete(path);
+                    } catch (IOException e) {
+                        log.error("Falha ao deletar {}", path, e);
+                    }
+                });
+            }
+        }
+    }
+
     private boolean perguntarSobreAtalhos() {
         System.out.print(ansi().fg(Ansi.Color.CYAN).a("\nDeseja gerar atalhos para as IDEs selecionadas? (S/n): ").reset());
         String resposta = scanner.nextLine().trim().toLowerCase();
@@ -177,7 +171,8 @@ public class GerenciadorDeInstalacao {
 
     private Path escolherLocalAtalhos(String caminhoRaiz) {
         System.out.println(ansi().fg(Ansi.Color.CYAN).a("\nOnde você deseja criar os atalhos?").reset());
-        System.out.println("  [1] Na pasta 'atalhos' do projeto (" + Paths.get(caminhoRaiz, DIRETORIO_ATALHOS).toAbsolutePath() + ")");
+        Path atalhosPath = Paths.get(caminhoRaiz, DIRETORIO_ATALHOS);
+        System.out.println("  [1] Na pasta 'atalhos' do projeto (" + atalhosPath.toAbsolutePath() + ")");
         System.out.println("  [2] No diretório de aplicações do sistema (~/.local/share/applications/)");
         System.out.print("Escolha uma opção: ");
         String escolha = scanner.nextLine().trim();
@@ -185,7 +180,7 @@ public class GerenciadorDeInstalacao {
         if ("2".equals(escolha)) {
             return Paths.get(System.getProperty("user.home"), ".local", "share", "applications");
         }
-        return Paths.get(caminhoRaiz, DIRETORIO_ATALHOS);
+        return atalhosPath;
     }
 
     private void processarArquivo(IdeInfo ideInfo, String caminhoRaiz, Path diretorioAtalhos) {

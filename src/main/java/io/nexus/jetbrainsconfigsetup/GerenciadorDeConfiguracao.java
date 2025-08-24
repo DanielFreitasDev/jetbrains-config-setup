@@ -64,6 +64,12 @@ public class GerenciadorDeConfiguracao {
             return;
         }
 
+        String newContent = generateCustomConfig(ideInfo, caminhoRaiz, content);
+        Files.writeString(propertiesFile, newContent, StandardCharsets.UTF_8);
+        log.info("Arquivo 'idea.properties' atualizado com sucesso para {}.", ideInfo.getNome());
+    }
+
+    private static String generateCustomConfig(IdeInfo ideInfo, String caminhoRaiz, String content) {
         Path configPath = Path.of(caminhoRaiz, "configuracoes", ideInfo.getNome(), ideInfo.getVersao(), "config");
         Path systemPath = Path.of(caminhoRaiz, "configuracoes", ideInfo.getNome(), ideInfo.getVersao(), "system");
 
@@ -74,9 +80,7 @@ public class GerenciadorDeConfiguracao {
                 "idea.log.path=${idea.system.path}/log\n" +
                 FIM_BLOCO_CUSTOMIZADO + "\n";
 
-        String newContent = customConfig + content;
-        Files.writeString(propertiesFile, newContent, StandardCharsets.UTF_8);
-        log.info("Arquivo 'idea.properties' atualizado com sucesso para {}.", ideInfo.getNome());
+        return customConfig + content;
     }
 
     private void configurarVmOptions(IdeInfo ideInfo, String caminhoRaiz) throws IOException {
@@ -142,27 +146,7 @@ public class GerenciadorDeConfiguracao {
             return;
         }
 
-        Path binariosDir = Path.of(caminhoRaiz, "binarios");
-        Path idePath = binariosDir.resolve(ideInfo.getNome()).resolve(ideInfo.getVersao());
-
-        String desktopContent = String.format(
-                "[Desktop Entry]\n" +
-                        "Version=1.0\n" +
-                        "Type=Application\n" +
-                        "Name=%s\n" +
-                        "Icon=%s\n" +
-                        "Exec=\"%s\" %%f\n" +
-                        "Comment=%s\n" +
-                        "Categories=Development;IDE;\n" +
-                        "Terminal=false\n" +
-                        "StartupWMClass=%s\n" +
-                        "StartupNotify=true\n",
-                atalho.getDesktopName(),
-                idePath.resolve("bin").resolve(atalho.getDesktopIcon()).toAbsolutePath(),
-                idePath.resolve("bin").resolve(atalho.getDesktopExec()).toAbsolutePath(),
-                atalho.getDesktopComment(),
-                atalho.getDesktopWmClass()
-        );
+        String desktopContent = generateDesktopEntryContent(ideInfo, caminhoRaiz, atalho);
 
         Path desktopFile = diretorioAtalhos.resolve(atalho.getDesktopFileName());
         Files.createDirectories(diretorioAtalhos);
@@ -178,5 +162,31 @@ public class GerenciadorDeConfiguracao {
         }
 
         System.out.println(ansi().fg(Ansi.Color.CYAN).a("✓ Atalho criado: " + desktopFile.toAbsolutePath()).reset());
+    }
+
+    private static String generateDesktopEntryContent(IdeInfo ideInfo, String caminhoRaiz, AtalhoInfo atalho) {
+        Path binariosDir = Path.of(caminhoRaiz, "binarios");
+        Path idePath = binariosDir.resolve(ideInfo.getNome()).resolve(ideInfo.getVersao());
+
+        return String.format(
+                """
+                        [Desktop Entry]
+                        Version=1.0
+                        Type=Application
+                        Name=%s
+                        Icon=%s
+                        Exec="%s" %%f
+                        Comment=%s
+                        Categories=Development;IDE;
+                        Terminal=false
+                        StartupWMClass=%s
+                        StartupNotify=true
+                        """,
+                atalho.getDesktopName(),
+                idePath.resolve("bin").resolve(atalho.getDesktopIcon()).toAbsolutePath(),
+                idePath.resolve("bin").resolve(atalho.getDesktopExec()).toAbsolutePath(),
+                atalho.getDesktopComment(),
+                atalho.getDesktopWmClass()
+        );
     }
 }
