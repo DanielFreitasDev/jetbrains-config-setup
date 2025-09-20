@@ -5,6 +5,8 @@ import com.google.gson.JsonSyntaxException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
+import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
+import org.apache.commons.compress.archivers.zip.ZipArchiveInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 import org.fusesource.jansi.Ansi;
 
@@ -47,6 +49,7 @@ public class GerenciadorDeInstalacao {
     private static final Gson gson = new Gson();
     private final Scanner scanner = new Scanner(System.in);
     private final GerenciadorDeConfiguracao gerenciadorDeConfiguracao = new GerenciadorDeConfiguracao();
+    private final boolean isWindows = System.getProperty("os.name").toLowerCase().startsWith("windows");
 
 
     public void instalar(String caminhoRaiz) {
@@ -57,22 +60,23 @@ public class GerenciadorDeInstalacao {
         }
 
         try (Stream<Path> stream = Files.list(pastaInstaladores)) {
-            List<Path> arquivosTarGz = stream
-                    .filter(p -> p.toString().endsWith(".tar.gz"))
+            String extensaoArquivo = isWindows ? ".zip" : ".tar.gz";
+            List<Path> arquivosInstalacao = stream
+                    .filter(p -> p.toString().endsWith(extensaoArquivo))
                     .collect(Collectors.toList());
 
-            if (arquivosTarGz.isEmpty()) {
-                log.info("Nenhum arquivo de instalação (.tar.gz) encontrado em '{}'.", pastaInstaladores);
+            if (arquivosInstalacao.isEmpty()) {
+                log.info("Nenhum arquivo de instalação ({}) encontrado em '{}'.", extensaoArquivo, pastaInstaladores);
                 return;
             }
 
-            List<IdeInfo> idesParaInstalar = exibirMenuDeSelecao(arquivosTarGz, caminhoRaiz);
+            List<IdeInfo> idesParaInstalar = exibirMenuDeSelecao(arquivosInstalacao, caminhoRaiz);
             if (idesParaInstalar.isEmpty()) {
                 log.info("Nenhuma IDE selecionada para instalação.");
                 return;
             }
 
-            boolean gerarAtalhos = perguntarSobreAtalhos();
+            boolean gerarAtalhos = !isWindows && perguntarSobreAtalhos();
             Path diretorioAtalhos = null;
             if (gerarAtalhos) {
                 diretorioAtalhos = escolherLocalAtalhos(caminhoRaiz);
@@ -192,10 +196,15 @@ public class GerenciadorDeInstalacao {
         try {
             Files.createDirectories(ideInfo.getCaminhoBinario());
             System.out.println(ansi().fg(Ansi.Color.BLUE).a("-> Descompactando " + ideInfo.getNome() + " para " + ideInfo.getCaminhoBinario()).reset());
-            descompactarTarGz(ideInfo.getCaminhoArquivo(), ideInfo.getCaminhoBinario());
+
+            if (isWindows) {
+                descompactarZip(ideInfo.getCaminhoArquivo(), ideInfo.getCaminhoBinario());
+            } else {
+                descompactarTarGz(ideInfo.getCaminhoArquivo(), ideInfo.getCaminhoBinario());
+            }
+
             System.out.println(ansi().fg(Ansi.Color.GREEN).a("✓ IDE " + ideInfo.getNome() + " versão " + ideInfo.getVersao() + " instalada com sucesso.").reset());
 
-            // Chama o gerenciador de configuração
             gerenciadorDeConfiguracao.configurarIde(ideInfo, caminhoRaiz, diretorioAtalhos);
 
         } catch (IOException e) {
@@ -214,7 +223,7 @@ public class GerenciadorDeInstalacao {
     }
 
     private String determinarNomeIde(String nomeArquivo) {
-        String nomeLimpo = nomeArquivo.toLowerCase().replace(".tar.gz", "");
+        String nomeLimpo = nomeArquivo.toLowerCase().replace(".tar.gz", "").replace(".win.zip", "");
         if (nomeLimpo.startsWith("pycharm")) return "pycharm";
         if (nomeLimpo.startsWith("datagrip")) return "datagrip";
         if (nomeLimpo.startsWith("ideaiu") || nomeLimpo.startsWith("ideaic")) return "intellij-idea";
@@ -232,27 +241,58 @@ public class GerenciadorDeInstalacao {
     }
 
     private Optional<String> extrairVersaoDoProductInfo(Path arquivo) {
-        try (InputStream fis = Files.newInputStream(arquivo);
-             GzipCompressorInputStream gzipIn = new GzipCompressorInputStream(fis);
-             TarArchiveInputStream tarIn = new TarArchiveInputStream(gzipIn)) {
-
-            TarArchiveEntry entry;
-            while ((entry = tarIn.getNextEntry()) != null) {
-                if (entry.getName().endsWith("product-info.json")) {
-                    log.debug("Encontrado product-info.json em: {}", entry.getName());
-                    String jsonContent = new BufferedReader(new InputStreamReader(tarIn, StandardCharsets.UTF_8))
-                            .lines()
-                            .collect(Collectors.joining("\n"));
-
-                    ProductInfo productInfo = gson.fromJson(jsonContent, ProductInfo.class);
-                    return Optional.ofNullable(productInfo.getVersion());
-                }
+        try (InputStream fis = Files.newInputStream(arquivo)) {
+            if (isWindows) {
+                return extrairVersaoDeZip(fis);
+            } else {
+                return extrairVersaoDeTarGz(fis);
             }
         } catch (IOException | JsonSyntaxException e) {
             log.error("Não foi possível ler o product-info.json do arquivo {}", arquivo.getFileName(), e);
         }
         return Optional.empty();
     }
+
+    private Optional<String> extrairVersaoDeTarGz(InputStream fis) throws IOException {
+        try (GzipCompressorInputStream gzipIn = new GzipCompressorInputStream(fis);
+             TarArchiveInputStream tarIn = new TarArchiveInputStream(gzipIn)) {
+            return lerProductInfoDoStream(tarIn);
+        }
+    }
+
+    private Optional<String> extrairVersaoDeZip(InputStream fis) throws IOException {
+        try (ZipArchiveInputStream zipIn = new ZipArchiveInputStream(fis)) {
+            return lerProductInfoDoStream(zipIn);
+        }
+    }
+
+    private Optional<String> lerProductInfoDoStream(InputStream archiveStream) throws IOException {
+        if (archiveStream instanceof TarArchiveInputStream tarIn) {
+            TarArchiveEntry entry;
+            while ((entry = tarIn.getNextEntry()) != null) {
+                if (entry.getName().endsWith("product-info.json")) {
+                    return lerJsonDoStream(tarIn);
+                }
+            }
+        } else if (archiveStream instanceof ZipArchiveInputStream zipIn) {
+            ZipArchiveEntry entry;
+            while ((entry = zipIn.getNextEntry()) != null) {
+                if (entry.getName().endsWith("product-info.json")) {
+                    return lerJsonDoStream(zipIn);
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
+    private Optional<String> lerJsonDoStream(InputStream in) {
+        String jsonContent = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))
+                .lines()
+                .collect(Collectors.joining("\n"));
+        ProductInfo productInfo = gson.fromJson(jsonContent, ProductInfo.class);
+        return Optional.ofNullable(productInfo.getVersion());
+    }
+
 
     private void descompactarTarGz(Path arquivoOrigem, Path diretorioDestino) throws IOException {
         try (InputStream fis = Files.newInputStream(arquivoOrigem);
@@ -262,6 +302,7 @@ public class GerenciadorDeInstalacao {
             TarArchiveEntry entry;
             while ((entry = tarIn.getNextEntry()) != null) {
                 String entryName = entry.getName();
+                // Remove o primeiro diretório do caminho (ex: idea-IU-212.5712.43/)
                 int firstSlash = entryName.indexOf('/');
                 if (firstSlash != -1) {
                     entryName = entryName.substring(firstSlash + 1);
@@ -285,11 +326,9 @@ public class GerenciadorDeInstalacao {
                     }
                 }
 
-                // Preserva as permissões do arquivo, se não estiver no Windows
-                if (!System.getProperty("os.name").toLowerCase().startsWith("windows")) {
+                if (!isWindows) {
                     try {
-                        int mode = entry.getMode();
-                        Set<PosixFilePermission> permissions = modeToPermissionsSet(mode);
+                        Set<PosixFilePermission> permissions = modeToPermissionsSet(entry.getMode());
                         Files.setPosixFilePermissions(destinoArquivo, permissions);
                     } catch (UnsupportedOperationException e) {
                         log.warn("Não foi possível definir as permissões POSIX para {}: {}", destinoArquivo, e.getMessage());
@@ -299,30 +338,42 @@ public class GerenciadorDeInstalacao {
         }
     }
 
-    /**
-     * Converte um modo de permissão numérico (estilo Unix) para um Set de PosixFilePermission.
-     *
-     * @param mode O modo numérico do arquivo.
-     * @return Um Set contendo as permissões POSIX correspondentes.
-     */
+    private void descompactarZip(Path arquivoOrigem, Path diretorioDestino) throws IOException {
+        try (InputStream fis = Files.newInputStream(arquivoOrigem);
+             ZipArchiveInputStream zipIn = new ZipArchiveInputStream(fis)) {
+
+            ZipArchiveEntry entry;
+            while ((entry = zipIn.getNextEntry()) != null) {
+                Path destinoArquivo = diretorioDestino.resolve(entry.getName()).normalize();
+
+                if (!destinoArquivo.startsWith(diretorioDestino)) {
+                    throw new IOException("Entrada de ZIP maliciosa (Zip Slip) detectada: " + entry.getName());
+                }
+
+                if (entry.isDirectory()) {
+                    Files.createDirectories(destinoArquivo);
+                } else {
+                    Files.createDirectories(destinoArquivo.getParent());
+                    try (OutputStream out = Files.newOutputStream(destinoArquivo)) {
+                        zipIn.transferTo(out);
+                    }
+                }
+            }
+        }
+    }
+
+
     private Set<PosixFilePermission> modeToPermissionsSet(int mode) {
         Set<PosixFilePermission> permissions = new HashSet<>();
-
-        // Permissões do Dono (Owner)
         if ((mode & 256) > 0) permissions.add(PosixFilePermission.OWNER_READ);
         if ((mode & 128) > 0) permissions.add(PosixFilePermission.OWNER_WRITE);
         if ((mode & 64) > 0) permissions.add(PosixFilePermission.OWNER_EXECUTE);
-
-        // Permissões do Grupo (Group)
         if ((mode & 32) > 0) permissions.add(PosixFilePermission.GROUP_READ);
         if ((mode & 16) > 0) permissions.add(PosixFilePermission.GROUP_WRITE);
         if ((mode & 8) > 0) permissions.add(PosixFilePermission.GROUP_EXECUTE);
-
-        // Permissões de Outros (Others)
         if ((mode & 4) > 0) permissions.add(PosixFilePermission.OTHERS_READ);
         if ((mode & 2) > 0) permissions.add(PosixFilePermission.OTHERS_WRITE);
         if ((mode & 1) > 0) permissions.add(PosixFilePermission.OTHERS_EXECUTE);
-
         return permissions;
     }
 }

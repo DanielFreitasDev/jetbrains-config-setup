@@ -18,13 +18,14 @@ public class GerenciadorDeConfiguracao {
 
     private static final String INICIO_BLOCO_CUSTOMIZADO = "# ===== INICIO CONFIGURACAO CUSTOMIZADA =====\n";
     private static final String FIM_BLOCO_CUSTOMIZADO = "# ===== FIM CONFIGURACAO CUSTOMIZADA =====\n";
+    private final boolean isWindows = System.getProperty("os.name").toLowerCase().startsWith("windows");
 
-    private static final Map<String, String> VM_OPTIONS_MAP = Map.of(
-            "rubymine", "rubymine64.vmoptions",
-            "pycharm", "pycharm64.vmoptions",
-            "intellij-idea", "idea64.vmoptions",
-            "datagrip", "datagrip64.vmoptions",
-            "webstorm", "webstorm64.vmoptions"
+    private final Map<String, String> VM_OPTIONS_MAP = Map.of(
+            "rubymine", isWindows ? "rubymine64.exe.vmoptions" : "rubymine64.vmoptions",
+            "pycharm", isWindows ? "pycharm64.exe.vmoptions" : "pycharm64.vmoptions",
+            "intellij-idea", isWindows ? "idea64.exe.vmoptions" : "idea64.vmoptions",
+            "datagrip", isWindows ? "datagrip64.exe.vmoptions" : "datagrip64.vmoptions",
+            "webstorm", isWindows ? "webstorm64.exe.vmoptions" : "webstorm64.vmoptions"
     );
 
     private static final Map<String, String> KEY_FILES_MAP = Map.of(
@@ -41,7 +42,7 @@ public class GerenciadorDeConfiguracao {
             configurarProperties(ideInfo, caminhoRaiz);
             configurarVmOptions(ideInfo, caminhoRaiz);
             copiarChave(ideInfo, caminhoRaiz);
-            if (diretorioAtalhos != null) {
+            if (diretorioAtalhos != null && !isWindows) {
                 gerarAtalho(ideInfo, caminhoRaiz, diretorioAtalhos);
             }
             System.out.println(ansi().fg(Ansi.Color.GREEN).a("✓ Configuração finalizada com sucesso para " + ideInfo.getNome() + " " + ideInfo.getVersao()).reset());
@@ -152,9 +153,8 @@ public class GerenciadorDeConfiguracao {
         Files.createDirectories(diretorioAtalhos);
         Files.writeString(desktopFile, desktopContent, StandardCharsets.UTF_8);
 
-        // Adiciona permissão de execução (relevante para Linux/macOS)
         try {
-            if (!System.getProperty("os.name").toLowerCase().startsWith("windows")) {
+            if (!isWindows) {
                 Files.setPosixFilePermissions(desktopFile, java.nio.file.attribute.PosixFilePermissions.fromString("rwxrwxr-x"));
             }
         } catch (UnsupportedOperationException e) {
