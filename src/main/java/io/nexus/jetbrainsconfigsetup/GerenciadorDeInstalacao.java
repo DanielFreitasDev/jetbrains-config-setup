@@ -76,7 +76,7 @@ public class GerenciadorDeInstalacao {
                 return;
             }
 
-            boolean gerarAtalhos = !isWindows && perguntarSobreAtalhos();
+            boolean gerarAtalhos = perguntarSobreAtalhos();
             Path diretorioAtalhos = null;
             if (gerarAtalhos) {
                 diretorioAtalhos = escolherLocalAtalhos(caminhoRaiz);
@@ -179,15 +179,26 @@ public class GerenciadorDeInstalacao {
     private Path escolherLocalAtalhos(String caminhoRaiz) {
         System.out.println(ansi().fg(Ansi.Color.CYAN).a("\nOnde você deseja criar os atalhos?").reset());
         Path atalhosPath = Paths.get(caminhoRaiz, DIRETORIO_ATALHOS);
-        System.out.println("  [1] Na pasta 'atalhos' do projeto (" + atalhosPath.toAbsolutePath() + ")");
-        System.out.println("  [2] No diretório de aplicações do sistema (~/.local/share/applications/)");
-        System.out.print("Escolha uma opção: ");
-        String escolha = scanner.nextLine().trim();
 
-        if ("2".equals(escolha)) {
-            return Paths.get(System.getProperty("user.home"), ".local", "share", "applications");
+        if (isWindows) {
+            System.out.println("  [1] Na pasta 'atalhos' do projeto (" + atalhosPath.toAbsolutePath() + ")");
+            System.out.println("  [2] Na Área de Trabalho (Desktop)");
+            System.out.print("Escolha uma opção: ");
+            String escolha = scanner.nextLine().trim();
+            if ("2".equals(escolha)) {
+                return Paths.get(System.getProperty("user.home"), "Desktop");
+            }
+            return atalhosPath;
+        } else { // Linux
+            System.out.println("  [1] Na pasta 'atalhos' do projeto (" + atalhosPath.toAbsolutePath() + ")");
+            System.out.println("  [2] No diretório de aplicações do sistema (~/.local/share/applications/)");
+            System.out.print("Escolha uma opção: ");
+            String escolha = scanner.nextLine().trim();
+            if ("2".equals(escolha)) {
+                return Paths.get(System.getProperty("user.home"), ".local", "share", "applications");
+            }
+            return atalhosPath;
         }
-        return atalhosPath;
     }
 
     private void processarArquivo(IdeInfo ideInfo, String caminhoRaiz, Path diretorioAtalhos) {

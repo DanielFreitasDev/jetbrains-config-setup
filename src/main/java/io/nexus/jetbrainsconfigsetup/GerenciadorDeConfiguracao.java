@@ -42,8 +42,13 @@ public class GerenciadorDeConfiguracao {
             configurarProperties(ideInfo, caminhoRaiz);
             configurarVmOptions(ideInfo, caminhoRaiz);
             copiarChave(ideInfo, caminhoRaiz);
-            if (diretorioAtalhos != null && !isWindows) {
-                gerarAtalho(ideInfo, caminhoRaiz, diretorioAtalhos);
+
+            if (diretorioAtalhos != null) {
+                if (isWindows) {
+                    gerarAtalhoWindows(ideInfo, diretorioAtalhos);
+                } else {
+                    gerarAtalho(ideInfo, caminhoRaiz, diretorioAtalhos);
+                }
             }
             System.out.println(ansi().fg(Ansi.Color.GREEN).a("✓ Configuração finalizada com sucesso para " + ideInfo.getNome() + " " + ideInfo.getVersao()).reset());
         } catch (IOException e) {
@@ -188,5 +193,43 @@ public class GerenciadorDeConfiguracao {
                 atalho.getDesktopComment(),
                 atalho.getDesktopWmClass()
         );
+    }
+
+    private void gerarAtalhoWindows(IdeInfo ideInfo, Path diretorioAtalho) {
+        String executavel = ideInfo.getNome().equals("intellij-idea") ? "idea64.exe" : ideInfo.getNome() + "64.exe";
+        Path caminhoExecutavel = ideInfo.getCaminhoBinario().resolve("bin").resolve(executavel);
+
+        if (Files.notExists(caminhoExecutavel)) {
+            log.warn("Executável '{}' não encontrado. Não é possível criar o atalho.", caminhoExecutavel);
+            return;
+        }
+
+        String nomeAtalho = new AtalhoInfo(ideInfo).getDesktopName() + ".lnk";
+        Path caminhoAtalho = diretorioAtalho.resolve(nomeAtalho);
+
+        log.info("Tentando criar atalho em: {}", caminhoAtalho);
+
+        String powerShellCommand =
+                "$ws = New-Object -ComObject WScript.Shell; " +
+                        "$s = $ws.CreateShortcut('" + caminhoAtalho.toAbsolutePath() + "'); " +
+                        "$s.TargetPath = '" + caminhoExecutavel.toAbsolutePath() + "'; " +
+                        "$s.Save();";
+
+        try {
+            ProcessBuilder processBuilder = new ProcessBuilder("powershell.exe", "-Command", powerShellCommand);
+            Process process = processBuilder.start();
+            int exitCode = process.waitFor();
+
+            if (exitCode == 0) {
+                System.out.println(ansi().fg(Ansi.Color.CYAN).a("✓ Atalho criado com sucesso em: " + caminhoAtalho.toAbsolutePath()).reset());
+            } else {
+                String stderr = new String(process.getErrorStream().readAllBytes());
+                log.error("Falha ao criar atalho. Código de saída: {}. Erro: {}", exitCode, stderr);
+                System.out.println(ansi().fg(Ansi.Color.RED).a("✗ Falha ao criar o atalho.").reset());
+            }
+        } catch (IOException | InterruptedException e) {
+            log.error("Exceção ao tentar criar atalho para {}", ideInfo.getNome(), e);
+            Thread.currentThread().interrupt();
+        }
     }
 }
