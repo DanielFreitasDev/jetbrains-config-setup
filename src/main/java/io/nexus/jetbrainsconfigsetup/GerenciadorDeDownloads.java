@@ -13,8 +13,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static org.fusesource.jansi.Ansi.ansi;
 
@@ -26,8 +24,6 @@ public class GerenciadorDeDownloads {
 
     // URL base para download dos produtos JetBrains
     private static final String BASE_URL_DOWNLOAD = "https://download.jetbrains.com/product?code=%s&latest&distribution=%s";
-    // Padrão regex para extrair o nome do arquivo do header Content-Disposition
-    private static final Pattern NOME_ARQUIVO_PATTERN = Pattern.compile("filename=\"?(.+?)\"?$");
     private static final String DIRETORIO_INSTALADORES = "instaladores";
 
     private final boolean isWindows = System.getProperty("os.name").toLowerCase().startsWith("windows");
@@ -94,29 +90,30 @@ public class GerenciadorDeDownloads {
         int responseCode = conn.getResponseCode();
         if (responseCode != HttpURLConnection.HTTP_OK) {
             log.error("Falha no download de {}. Código de resposta: {}", nomeIde, responseCode);
+            conn.disconnect();
             return null;
         }
 
-        // Tenta extrair o nome do arquivo do header
-        String nomeArquivo = getNomeArquivo(conn);
-        if (nomeArquivo == null) {
-            log.error("Não foi possível determinar o nome do arquivo para {}", nomeIde);
-            // Fallback: extrai da URL final (menos confiável)
-            String urlFinal = conn.getURL().getPath();
-            log.info("URL final: {}", urlFinal);
-            nomeArquivo = urlFinal.substring(urlFinal.lastIndexOf('/') + 1);
-            if (nomeArquivo.isEmpty()) {
-                log.error("Falha total ao determinar nome do arquivo para {}.", nomeIde);
-                return null;
-            }
-            log.warn("Usando nome do arquivo fallback da URL: {}", nomeArquivo);
+        // --- Lógica de Nome de Arquivo ---
+        // Pega o nome do arquivo diretamente da URL final (redirecionada)
+        String urlFinal = conn.getURL().getPath();
+        log.debug("URL final detectada: {}", urlFinal);
+        String nomeArquivo = urlFinal.substring(urlFinal.lastIndexOf('/') + 1);
+
+        if (nomeArquivo.isEmpty()) {
+            log.error("Falha total ao determinar o nome do arquivo para {}. URL final: {}", nomeIde, urlFinal);
+            conn.disconnect();
+            return null;
         }
+        log.info("Nome do arquivo determinado pela URL final: {}", nomeArquivo);
+        // --- Fim da Lógica de Nome de Arquivo ---
 
         Path arquivoDestino = diretorioDestino.resolve(nomeArquivo);
         long tamanhoTotal = conn.getContentLengthLong();
 
         System.out.println("  Salvando em: " + arquivoDestino);
-        System.out.println("  Tamanho: " + (tamanhoTotal / 1024 / 1024) + " MB");
+        // Exibe 0 MB se o tamanho total for desconhecido (tamanhoTotal = -1)
+        System.out.println("  Tamanho: " + (tamanhoTotal > 0 ? (tamanhoTotal / 1024 / 1024) + " MB" : "Desconhecido"));
 
         // Bloco try-with-resources para garantir que os streams sejam fechados
         try (InputStream in = conn.getInputStream();
@@ -142,33 +139,26 @@ public class GerenciadorDeDownloads {
                                 .newline());
                         progressoAnterior = progressoAtual;
                     }
+                } else {
+                    // Se o tamanho for desconhecido, exibe o total baixado
+                    System.out.print(ansi().cursorUp(1).eraseLine()
+                            .a("  Baixando: " + (totalLido / 1024 / 1024) + " MB baixados")
+                            .newline());
                 }
             }
             out.flush(); // Garante que tudo foi escrito
+
+            // Limpa a linha de progresso final
+            if (tamanhoTotal <= 0) {
+                System.out.print(ansi().cursorUp(1).eraseLine()
+                        .a("  Baixando: " + (totalLido / 1024 / 1024) + " MB baixados (Concluído)")
+                        .newline());
+            }
+
         } finally {
             conn.disconnect();
         }
 
         return arquivoDestino;
-    }
-
-    /**
-     * Extrai o nome do arquivo do header 'Content-Disposition' da conexão HTTP.
-     *
-     * @param conn A {@link HttpURLConnection} ativa.
-     * @return O nome do arquivo, ou null se não for encontrado.
-     */
-    private String getNomeArquivo(HttpURLConnection conn) {
-        String headerDisposition = conn.getHeaderField("Content-Disposition");
-        if (headerDisposition != null && !headerDisposition.isEmpty()) {
-            Matcher matcher = NOME_ARQUIVO_PATTERN.matcher(headerDisposition);
-            if (matcher.find()) {
-                String nome = matcher.group(1).replace("\"", "");
-                log.debug("Nome do arquivo extraído do Content-Disposition: {}", nome);
-                return nome;
-            }
-        }
-        log.warn("Header Content-Disposition não encontrado ou inválido.");
-        return null;
     }
 }
