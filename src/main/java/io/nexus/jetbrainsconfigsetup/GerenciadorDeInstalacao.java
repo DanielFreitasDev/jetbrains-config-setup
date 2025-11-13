@@ -52,6 +52,12 @@ public class GerenciadorDeInstalacao {
     private final boolean isWindows = System.getProperty("os.name").toLowerCase().startsWith("windows");
 
 
+    /**
+     * Ponto de entrada principal para a instalação de IDEs a partir de arquivos locais.
+     * Lista os arquivos na pasta 'instaladores' e exibe um menu de seleção.
+     *
+     * @param caminhoRaiz O diretório raiz da aplicação.
+     */
     public void instalar(String caminhoRaiz) {
         Path pastaInstaladores = Paths.get(caminhoRaiz, DIRETORIO_INSTALADORES);
         if (Files.notExists(pastaInstaladores)) {
@@ -59,35 +65,85 @@ public class GerenciadorDeInstalacao {
             return;
         }
 
-        try (Stream<Path> stream = Files.list(pastaInstaladores)) {
+        // 1. Lista os arquivos locais
+        List<Path> arquivosInstalacao = listarArquivosLocais(caminhoRaiz);
+
+        if (arquivosInstalacao.isEmpty()) {
             String extensaoArquivo = isWindows ? ".zip" : ".tar.gz";
-            List<Path> arquivosInstalacao = stream
+            log.info("Nenhum arquivo de instalação ({}) encontrado em '{}'.", extensaoArquivo, pastaInstaladores);
+            System.out.println(ansi().fg(Ansi.Color.YELLOW).a("Nenhum arquivo de instalação (" + extensaoArquivo + ") encontrado em '" + pastaInstaladores.toAbsolutePath() + "'.\n" +
+                    "Use a opção 'Baixar IDEs' no menu principal ou adicione os arquivos manualmente.").reset());
+            return;
+        }
+
+        // 2. Exibe o menu de seleção para os arquivos encontrados
+        List<IdeInfo> idesParaInstalar = exibirMenuDeSelecao(arquivosInstalacao, caminhoRaiz);
+
+        // 3. Processa a lista de IDEs selecionadas
+        processarListaDeIdes(idesParaInstalar, caminhoRaiz);
+    }
+
+    /**
+     * Instala uma lista específica de arquivos de IDEs (presumivelmente baixados).
+     * Este método pula o menu de seleção e vai direto para a confirmação e instalação.
+     *
+     * @param arquivosBaixados A lista de Paths para os arquivos .tar.gz ou .zip a serem instalados.
+     * @param caminhoRaiz      O diretório raiz da aplicação.
+     */
+    public void instalarArquivosBaixados(List<Path> arquivosBaixados, String caminhoRaiz) {
+        log.info("Iniciando instalação para {} arquivos baixados.", arquivosBaixados.size());
+
+        // 1. Converte Paths em IdeInfo e filtra (confirmando substituição)
+        List<IdeInfo> idesParaInstalar = arquivosBaixados.stream()
+                .map(this::extrairIdeInfo)
+                .filter(ide -> confirmarSubstituicao(ide, caminhoRaiz))
+                .collect(Collectors.toList());
+
+        // 2. Processa a lista de IDEs filtradas
+        processarListaDeIdes(idesParaInstalar, caminhoRaiz);
+    }
+
+    /**
+     * Lista os arquivos de instalação (.zip ou .tar.gz) presentes no diretório 'instaladores'.
+     *
+     * @param caminhoRaiz O diretório raiz da aplicação.
+     * @return Uma lista de Paths para os arquivos de instalação encontrados.
+     */
+    private List<Path> listarArquivosLocais(String caminhoRaiz) {
+        Path pastaInstaladores = Paths.get(caminhoRaiz, DIRETORIO_INSTALADORES);
+        String extensaoArquivo = isWindows ? ".zip" : ".tar.gz";
+
+        try (Stream<Path> stream = Files.list(pastaInstaladores)) {
+            return stream
                     .filter(p -> p.toString().endsWith(extensaoArquivo))
                     .collect(Collectors.toList());
-
-            if (arquivosInstalacao.isEmpty()) {
-                log.info("Nenhum arquivo de instalação ({}) encontrado em '{}'.", extensaoArquivo, pastaInstaladores);
-                return;
-            }
-
-            List<IdeInfo> idesParaInstalar = exibirMenuDeSelecao(arquivosInstalacao, caminhoRaiz);
-            if (idesParaInstalar.isEmpty()) {
-                log.info("Nenhuma IDE selecionada para instalação.");
-                return;
-            }
-
-            boolean gerarAtalhos = perguntarSobreAtalhos();
-            Path diretorioAtalhos = null;
-            if (gerarAtalhos) {
-                diretorioAtalhos = escolherLocalAtalhos(caminhoRaiz);
-            }
-
-            for (IdeInfo ide : idesParaInstalar) {
-                processarArquivo(ide, caminhoRaiz, diretorioAtalhos);
-            }
-
         } catch (IOException e) {
             log.error("Erro ao listar arquivos no diretório de instaladores.", e);
+            return Collections.emptyList();
+        }
+    }
+
+    /**
+     * Processa a instalação de uma lista de {@link IdeInfo} já selecionada.
+     * Este método cuida de perguntar sobre atalhos e iterar sobre a lista para instalar cada IDE.
+     *
+     * @param idesParaInstalar A lista de IDEs que devem ser instaladas.
+     * @param caminhoRaiz      O diretório raiz da aplicação.
+     */
+    private void processarListaDeIdes(List<IdeInfo> idesParaInstalar, String caminhoRaiz) {
+        if (idesParaInstalar.isEmpty()) {
+            log.info("Nenhuma IDE selecionada para instalação.");
+            return;
+        }
+
+        boolean gerarAtalhos = perguntarSobreAtalhos();
+        Path diretorioAtalhos = null;
+        if (gerarAtalhos) {
+            diretorioAtalhos = escolherLocalAtalhos(caminhoRaiz);
+        }
+
+        for (IdeInfo ide : idesParaInstalar) {
+            processarArquivo(ide, caminhoRaiz, diretorioAtalhos);
         }
     }
 
@@ -234,10 +290,11 @@ public class GerenciadorDeInstalacao {
     }
 
     private String determinarNomeIde(String nomeArquivo) {
-        String nomeLimpo = nomeArquivo.toLowerCase().replace(".tar.gz", "").replace(".win.zip", "");
+        String nomeLimpo = nomeArquivo.toLowerCase().replace(".tar.gz", "").replace(".win.zip", "").replace(".zip", "");
         if (nomeLimpo.startsWith("pycharm")) return "pycharm";
         if (nomeLimpo.startsWith("datagrip")) return "datagrip";
-        if (nomeLimpo.startsWith("ideaiu") || nomeLimpo.startsWith("ideaic")) return "intellij-idea";
+        if (nomeLimpo.startsWith("ideaiu") || nomeLimpo.startsWith("ideaic") || nomeLimpo.startsWith("intellijidea"))
+            return "intellij-idea";
         if (nomeLimpo.startsWith("rubymine")) return "rubymine";
         if (nomeLimpo.startsWith("webstorm")) return "webstorm";
         return nomeLimpo.replaceAll("[-_].*", ""); // Fallback
@@ -355,7 +412,20 @@ public class GerenciadorDeInstalacao {
 
             ZipArchiveEntry entry;
             while ((entry = zipIn.getNextEntry()) != null) {
-                Path destinoArquivo = diretorioDestino.resolve(entry.getName()).normalize();
+                // Remove o primeiro diretório do caminho, se existir (ex: pycharm-2023.1/)
+                String entryName = entry.getName();
+                int firstSlash = entryName.indexOf('/');
+                if (firstSlash != -1 && entryName.endsWith("/")) { // Se for um diretório raiz
+                    continue; // Pula a pasta raiz
+                }
+                if (firstSlash != -1) {
+                    entryName = entryName.substring(firstSlash + 1);
+                }
+                if (entryName.isEmpty()) {
+                    continue;
+                }
+
+                Path destinoArquivo = diretorioDestino.resolve(entryName).normalize();
 
                 if (!destinoArquivo.startsWith(diretorioDestino)) {
                     throw new IOException("Entrada de ZIP maliciosa (Zip Slip) detectada: " + entry.getName());
