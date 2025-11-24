@@ -412,20 +412,7 @@ public class GerenciadorDeInstalacao {
 
             ZipArchiveEntry entry;
             while ((entry = zipIn.getNextEntry()) != null) {
-                // Remove o primeiro diretório do caminho, se existir (ex: pycharm-2023.1/)
-                String entryName = entry.getName();
-                int firstSlash = entryName.indexOf('/');
-                if (firstSlash != -1 && entryName.endsWith("/")) { // Se for um diretório raiz
-                    continue; // Pula a pasta raiz
-                }
-                if (firstSlash != -1) {
-                    entryName = entryName.substring(firstSlash + 1);
-                }
-                if (entryName.isEmpty()) {
-                    continue;
-                }
-
-                Path destinoArquivo = diretorioDestino.resolve(entryName).normalize();
+                Path destinoArquivo = diretorioDestino.resolve(entry.getName()).normalize();
 
                 if (!destinoArquivo.startsWith(diretorioDestino)) {
                     throw new IOException("Entrada de ZIP maliciosa (Zip Slip) detectada: " + entry.getName());
