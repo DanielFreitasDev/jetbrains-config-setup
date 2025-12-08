@@ -293,7 +293,7 @@ public class GerenciadorDeInstalacao {
         String nomeLimpo = nomeArquivo.toLowerCase().replace(".tar.gz", "").replace(".win.zip", "").replace(".zip", "");
         if (nomeLimpo.startsWith("pycharm")) return "pycharm";
         if (nomeLimpo.startsWith("datagrip")) return "datagrip";
-        if (nomeLimpo.startsWith("ideaiu") || nomeLimpo.startsWith("ideaic") || nomeLimpo.startsWith("intellijidea"))
+        if (nomeLimpo.startsWith("ideaiu") || nomeLimpo.startsWith("ideaic") || nomeLimpo.startsWith("intellijidea") || nomeLimpo.startsWith("idea"))
             return "intellij-idea";
         if (nomeLimpo.startsWith("rubymine")) return "rubymine";
         if (nomeLimpo.startsWith("webstorm")) return "webstorm";
