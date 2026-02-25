@@ -137,13 +137,14 @@ public class GerenciadorDeInstalacao {
         }
 
         boolean gerarAtalhos = perguntarSobreAtalhos();
+        boolean usarChavePadraoDoProduto = perguntarSobreUsoDaChavePadraoDoProduto();
         Path diretorioAtalhos = null;
         if (gerarAtalhos) {
             diretorioAtalhos = escolherLocalAtalhos(caminhoRaiz);
         }
 
         for (IdeInfo ide : idesParaInstalar) {
-            processarArquivo(ide, caminhoRaiz, diretorioAtalhos);
+            processarArquivo(ide, caminhoRaiz, diretorioAtalhos, usarChavePadraoDoProduto);
         }
     }
 
@@ -232,6 +233,22 @@ public class GerenciadorDeInstalacao {
         return !"n".equals(resposta);
     }
 
+    /**
+     * Pergunta ao usuário se deve aplicar a chave padrão do produto no lote atual de instalação.
+     * Quando o usuário responde "n", a configuração da IDE mantém o comportamento sem chave padrão:
+     * não copia o arquivo .key e não adiciona customizações no arquivo .vmoptions.
+     *
+     * @return {@code true} quando deve aplicar a chave padrão do produto; caso contrário, {@code false}.
+     */
+    private boolean perguntarSobreUsoDaChavePadraoDoProduto() {
+        // A decisão é única para o lote atual e será reutilizada para todas as IDEs selecionadas.
+        System.out.print(ansi().fg(Ansi.Color.CYAN).a("\nDeseja inserir a chave padrao do produto? (S/n): ").reset());
+        String resposta = scanner.nextLine().trim().toLowerCase();
+
+        // Mantém o padrão atual (sim) quando a entrada não for "n".
+        return !"n".equals(resposta);
+    }
+
     private Path escolherLocalAtalhos(String caminhoRaiz) {
         System.out.println(ansi().fg(Ansi.Color.CYAN).a("\nOnde você deseja criar os atalhos?").reset());
         Path atalhosPath = Paths.get(caminhoRaiz, DIRETORIO_ATALHOS);
@@ -257,7 +274,7 @@ public class GerenciadorDeInstalacao {
         }
     }
 
-    private void processarArquivo(IdeInfo ideInfo, String caminhoRaiz, Path diretorioAtalhos) {
+    private void processarArquivo(IdeInfo ideInfo, String caminhoRaiz, Path diretorioAtalhos, boolean usarChavePadraoDoProduto) {
         log.info("Processando arquivo: {}", ideInfo.getCaminhoArquivo().getFileName());
 
         try {
@@ -272,7 +289,7 @@ public class GerenciadorDeInstalacao {
 
             System.out.println(ansi().fg(Ansi.Color.GREEN).a("✓ IDE " + ideInfo.getNome() + " versão " + ideInfo.getVersao() + " instalada com sucesso.").reset());
 
-            gerenciadorDeConfiguracao.configurarIde(ideInfo, caminhoRaiz, diretorioAtalhos);
+            gerenciadorDeConfiguracao.configurarIde(ideInfo, caminhoRaiz, diretorioAtalhos, usarChavePadraoDoProduto);
 
         } catch (IOException e) {
             log.error("Falha ao criar diretório ou descompactar o arquivo {}", ideInfo.getCaminhoArquivo().getFileName(), e);

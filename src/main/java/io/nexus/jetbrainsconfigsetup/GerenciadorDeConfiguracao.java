@@ -36,12 +36,16 @@ public class GerenciadorDeConfiguracao {
             "webstorm", "webstorm.key"
     );
 
-    public void configurarIde(IdeInfo ideInfo, String caminhoRaiz, Path diretorioAtalhos) {
+    public void configurarIde(IdeInfo ideInfo, String caminhoRaiz, Path diretorioAtalhos, boolean usarChavePadraoDoProduto) {
         log.info("Iniciando configuração para a IDE: {} {}", ideInfo.getNome(), ideInfo.getVersao());
         try {
             configurarProperties(ideInfo, caminhoRaiz);
-            configurarVmOptions(ideInfo, caminhoRaiz);
-            copiarChave(ideInfo, caminhoRaiz);
+            if (usarChavePadraoDoProduto) {
+                configurarVmOptions(ideInfo, caminhoRaiz);
+                copiarChave(ideInfo, caminhoRaiz);
+            } else {
+                log.info("Aplicação da chave padrão desativada para {}. Pulando .vmoptions customizado e arquivo .key.", ideInfo.getNome());
+            }
 
             if (diretorioAtalhos != null) {
                 if (isWindows) {
