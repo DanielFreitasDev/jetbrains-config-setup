@@ -13,6 +13,11 @@
 
    Esse comando vai **criar automaticamente uma estrutura de pastas** para organizar os arquivos.
    Não é preciso alterar nada depois disso.
+   Se quiser ver logs detalhados (`INFO` e `WARN`), execute com `--verbose`:
+
+   ```bash
+   java -jar jetbrains-config-setup-1.0.jar --verbose
+   ```
 
    Depois de rodar o comando, sua pasta deve ficar assim:
 

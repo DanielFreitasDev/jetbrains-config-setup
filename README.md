@@ -75,6 +75,12 @@ A aplicação segue um fluxo de execução orquestrado pela classe `Main`:
     java -jar /caminho/para/jetbrains-config-setup-1.0.jar /meu/diretorio/base
     ```
 
+    *Opção 3: Executando com logs detalhados (modo verbose)*
+
+    ```bash
+    java -jar /caminho/para/jetbrains-config-setup-1.0.jar --verbose
+    ```
+
 4.  **Siga o Menu Interativo**:
 
       * O programa listará todos os instaladores encontrados.
