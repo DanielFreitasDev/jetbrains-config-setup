@@ -23,6 +23,7 @@ public class Main {
 
     private static final List<String> ARGUMENTOS_AJUDA = Arrays.asList("-h", "--help", "--h", "-help");
     private static final List<String> ARGUMENTOS_VERBOSE = Arrays.asList("-v", "--verbose");
+    private static final boolean IS_WINDOWS = System.getProperty("os.name").toLowerCase(Locale.ROOT).startsWith("windows");
 
     private static Scanner scanner;
 
@@ -78,6 +79,7 @@ public class Main {
 
         GerenciadorDeInstalacao gerenciadorDeInstalacao = new GerenciadorDeInstalacao();
         GerenciadorDeDownloads gerenciadorDeDownloads = new GerenciadorDeDownloads();
+        GerenciadorDeRegistrosJetBrains gerenciadorDeRegistrosJetBrains = new GerenciadorDeRegistrosJetBrains();
 
         // Loop do menu principal
         boolean executando = true;
@@ -100,6 +102,14 @@ public class Main {
                     // Opção 3: Baixar e Instalar IDEs (versão mais recente)
                     log.info("Opção selecionada: 3 - Baixar e Instalar IDEs (versão mais recente)");
                     iniciarProcessoDeDownloadEInstalacao(gerenciadorDeDownloads, gerenciadorDeInstalacao, caminhoRaiz);
+                    break;
+                case "4":
+                    if (!IS_WINDOWS) {
+                        log.info("Opção selecionada: 4 - Limpar registros JetBrains");
+                        gerenciadorDeRegistrosJetBrains.limparRegistros();
+                    } else {
+                        System.out.println(ansi().fg(Ansi.Color.RED).a("Opção inválida. Tente novamente.").reset());
+                    }
                     break;
                 case "0":
                     // Opção 0: Sair
@@ -125,6 +135,9 @@ public class Main {
         System.out.println(ansi().fg(Ansi.Color.YELLOW).a("  [1] ").reset().a("Instalar IDEs (usar arquivos locais da pasta 'instaladores')"));
         System.out.println(ansi().fg(Ansi.Color.YELLOW).a("  [2] ").reset().a("Baixar IDEs (versão mais recente)"));
         System.out.println(ansi().fg(Ansi.Color.YELLOW).a("  [3] ").reset().a("Baixar e Instalar IDEs (versão mais recente)"));
+        if (!IS_WINDOWS) {
+            System.out.println(ansi().fg(Ansi.Color.YELLOW).a("  [4] ").reset().a("Limpar registros JetBrains"));
+        }
         System.out.println(ansi().fg(Ansi.Color.YELLOW).a("  [0] ").reset().fg(Ansi.Color.RED).a("Sair").reset());
         System.out.print("\nEscolha: ");
     }
