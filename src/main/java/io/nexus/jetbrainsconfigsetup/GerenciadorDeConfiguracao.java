@@ -36,13 +36,23 @@ public class GerenciadorDeConfiguracao {
             "webstorm", "webstorm.key"
     );
 
-    public void configurarIde(IdeInfo ideInfo, String caminhoRaiz, Path diretorioAtalhos, boolean usarChavePadraoDoProduto) {
+    public void configurarIde(IdeInfo ideInfo,
+                              String caminhoRaiz,
+                              Path diretorioAtalhos,
+                              boolean usarChavePadraoDoProduto,
+                              TipoFerramenta tipoFerramentaSelecionada) {
         log.info("Iniciando configuração para a IDE: {} {}", ideInfo.getNome(), ideInfo.getVersao());
         try {
             configurarProperties(ideInfo, caminhoRaiz);
             if (usarChavePadraoDoProduto) {
-                configurarVmOptions(ideInfo, caminhoRaiz);
-                copiarChave(ideInfo, caminhoRaiz);
+                configurarVmOptions(ideInfo, caminhoRaiz, tipoFerramentaSelecionada);
+                if (tipoFerramentaSelecionada.deveCopiarChavePadrao()) {
+                    copiarChave(ideInfo, caminhoRaiz);
+                } else {
+                    log.info("Ferramenta {} selecionada para {}. A cópia do arquivo .key será ignorada.",
+                            tipoFerramentaSelecionada.getNomeExibicao(),
+                            ideInfo.getNome());
+                }
             } else {
                 log.info("Aplicação da chave padrão desativada para {}. Pulando .vmoptions customizado e arquivo .key.", ideInfo.getNome());
             }
@@ -93,7 +103,7 @@ public class GerenciadorDeConfiguracao {
         return customConfig + content;
     }
 
-    private void configurarVmOptions(IdeInfo ideInfo, String caminhoRaiz) throws IOException {
+    private void configurarVmOptions(IdeInfo ideInfo, String caminhoRaiz, TipoFerramenta tipoFerramentaSelecionada) throws IOException {
         String vmOptionsFileName = VM_OPTIONS_MAP.get(ideInfo.getNome());
         if (vmOptionsFileName == null) {
             log.warn("Arquivo VMOptions não mapeado para {}. Ignorando.", ideInfo.getNome());
@@ -112,7 +122,7 @@ public class GerenciadorDeConfiguracao {
             return;
         }
 
-        Path toolPath = Path.of(caminhoRaiz, "ferramentas", "ferramenta-atual", "jetbrains-tool.jar");
+        Path toolPath = Path.of(caminhoRaiz, "ferramentas", "ferramenta-atual", tipoFerramentaSelecionada.getNomeArquivoJavaAgent());
         String customConfig = "\n" + INICIO_BLOCO_CUSTOMIZADO +
                 "--add-opens=java.base/jdk.internal.org.objectweb.asm=ALL-UNNAMED\n" +
                 "--add-opens=java.base/jdk.internal.org.objectweb.asm.tree=ALL-UNNAMED\n" +

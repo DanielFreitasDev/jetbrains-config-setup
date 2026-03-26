@@ -138,13 +138,14 @@ public class GerenciadorDeInstalacao {
 
         boolean gerarAtalhos = perguntarSobreAtalhos();
         boolean usarChavePadraoDoProduto = perguntarSobreUsoDaChavePadraoDoProduto();
+        TipoFerramenta tipoFerramentaSelecionada = perguntarSobreTipoFerramenta();
         Path diretorioAtalhos = null;
         if (gerarAtalhos) {
             diretorioAtalhos = escolherLocalAtalhos(caminhoRaiz);
         }
 
         for (IdeInfo ide : idesParaInstalar) {
-            processarArquivo(ide, caminhoRaiz, diretorioAtalhos, usarChavePadraoDoProduto);
+            processarArquivo(ide, caminhoRaiz, diretorioAtalhos, usarChavePadraoDoProduto, tipoFerramentaSelecionada);
         }
     }
 
@@ -249,6 +250,27 @@ public class GerenciadorDeInstalacao {
         return !"n".equals(resposta);
     }
 
+    /**
+     * Pergunta qual variante da ferramenta JetBrains deve ser usada no lote atual de instalação.
+     * A resposta é reutilizada para todas as IDEs selecionadas, evitando divergência de configuração dentro do mesmo lote.
+     * Se o usuário apenas pressionar Enter ou informar um valor inesperado, a opção legada é mantida por compatibilidade.
+     *
+     * @return Variante de ferramenta escolhida para o lote atual.
+     */
+    private TipoFerramenta perguntarSobreTipoFerramenta() {
+        // A opção legada permanece como padrão para preservar o fluxo que já existia antes desta mudança.
+        System.out.println(ansi().fg(Ansi.Color.CYAN).a("\nQual ferramenta deseja usar nesta instalação?").reset());
+        System.out.println(ansi().fg(Ansi.Color.YELLOW).a("  [1] ").reset().a("Legada"));
+        System.out.println(ansi().fg(Ansi.Color.YELLOW).a("  [2] ").reset().a("2026"));
+        System.out.print("Escolha uma opção (padrão 1): ");
+
+        String resposta = scanner.nextLine().trim();
+        if ("2".equals(resposta)) {
+            return TipoFerramenta.VERSAO_2026;
+        }
+        return TipoFerramenta.LEGADA;
+    }
+
     private Path escolherLocalAtalhos(String caminhoRaiz) {
         System.out.println(ansi().fg(Ansi.Color.CYAN).a("\nOnde você deseja criar os atalhos?").reset());
         Path atalhosPath = Paths.get(caminhoRaiz, DIRETORIO_ATALHOS);
@@ -274,7 +296,11 @@ public class GerenciadorDeInstalacao {
         }
     }
 
-    private void processarArquivo(IdeInfo ideInfo, String caminhoRaiz, Path diretorioAtalhos, boolean usarChavePadraoDoProduto) {
+    private void processarArquivo(IdeInfo ideInfo,
+                                  String caminhoRaiz,
+                                  Path diretorioAtalhos,
+                                  boolean usarChavePadraoDoProduto,
+                                  TipoFerramenta tipoFerramentaSelecionada) {
         log.info("Processando arquivo: {}", ideInfo.getCaminhoArquivo().getFileName());
 
         try {
@@ -289,7 +315,7 @@ public class GerenciadorDeInstalacao {
 
             System.out.println(ansi().fg(Ansi.Color.GREEN).a("✓ IDE " + ideInfo.getNome() + " versão " + ideInfo.getVersao() + " instalada com sucesso.").reset());
 
-            gerenciadorDeConfiguracao.configurarIde(ideInfo, caminhoRaiz, diretorioAtalhos, usarChavePadraoDoProduto);
+            gerenciadorDeConfiguracao.configurarIde(ideInfo, caminhoRaiz, diretorioAtalhos, usarChavePadraoDoProduto, tipoFerramentaSelecionada);
 
         } catch (IOException e) {
             log.error("Falha ao criar diretório ou descompactar o arquivo {}", ideInfo.getCaminhoArquivo().getFileName(), e);
