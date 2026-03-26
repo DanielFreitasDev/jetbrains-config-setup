@@ -22,11 +22,12 @@ import static org.fusesource.jansi.Ansi.ansi;
 public class GerenciadorDeRegistrosJetBrains {
 
     private static final String NOME_DIRETORIO_JETBRAINS = "jetbrains";
-    private static final List<String> DIRETORIOS_BASE_RELATIVOS = List.of(".cache", ".local/share");
+    private static final List<String> DIRETORIOS_BASE_RELATIVOS = List.of(".cache", ".local/share", ".config");
     private final boolean isWindows = System.getProperty("os.name").toLowerCase(Locale.ROOT).startsWith("windows");
 
     /**
-     * Remove, no Linux, os diretórios JetBrains localizados diretamente em {@code ~/.cache} e {@code ~/.local/share}.
+     * Remove, no Linux, os diretórios JetBrains localizados diretamente em {@code ~/.cache}, {@code ~/.local/share}
+     * e {@code ~/.config}.
      * A comparação do nome do diretório é feita sem diferenciar maiúsculas de minúsculas para cobrir variações como
      * {@code jetbrains}, {@code Jetbrains} e {@code JetBrains}.
      */
@@ -47,7 +48,7 @@ public class GerenciadorDeRegistrosJetBrains {
         }
 
         if (diretoriosRemovidos.isEmpty()) {
-            System.out.println(ansi().fg(Ansi.Color.YELLOW).a("Nenhum diretório JetBrains foi encontrado em ~/.cache ou ~/.local/share.").reset());
+            System.out.println(ansi().fg(Ansi.Color.YELLOW).a("Nenhum diretório JetBrains foi encontrado em ~/.cache, ~/.local/share ou ~/.config.").reset());
             return;
         }
 
