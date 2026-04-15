@@ -8,7 +8,7 @@ package io.nexus.jetbrainsconfigsetup;
 public enum TipoFerramenta {
 
     LEGADA("Legada", "jetbrains-tool.jar", true),
-    VERSAO_2026("2026", "enc-sniarbtej-2026.01.00.jar", false);
+    VERSAO_2026("2026", "enc-sniarbtej-2026.01.01.jar", false);
 
     private final String nomeExibicao;
     private final String nomeArquivoJavaAgent;

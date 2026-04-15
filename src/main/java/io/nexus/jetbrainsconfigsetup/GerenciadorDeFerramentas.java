@@ -24,9 +24,9 @@ public class GerenciadorDeFerramentas {
 
     private static final String NOME_RECURSO_JETBRAINS_TOOL = "jetbrains-tool.jar.base64";
     private static final String NOME_RECURSO_CHAVES = "idea.tar.gz.base64";
-    private static final String NOME_RECURSO_FERRAMENTA_2026 = "enc-sniarbtej-2026.01.00.jar.base64";
+    private static final String NOME_RECURSO_FERRAMENTA_2026 = "enc-sniarbtej-2026.01.01.jar.base64";
     private static final String NOME_ARQUIVO_JETBRAINS_TOOL = "jetbrains-tool.jar";
-    private static final String NOME_ARQUIVO_FERRAMENTA_2026 = "enc-sniarbtej-2026.01.00.jar";
+    private static final String NOME_ARQUIVO_FERRAMENTA_2026 = "enc-sniarbtej-2026.01.01.jar";
 
     private static final List<String> NOMES_CHAVES_A_GERAR = List.of(
             "pycharm.key",

@@ -138,7 +138,11 @@ public class GerenciadorDeInstalacao {
 
         boolean gerarAtalhos = perguntarSobreAtalhos();
         boolean usarChavePadraoDoProduto = perguntarSobreUsoDaChavePadraoDoProduto();
-        TipoFerramenta tipoFerramentaSelecionada = perguntarSobreTipoFerramenta();
+        // Só pergunta o tipo de ferramenta quando o usuário deseja aplicar a chave padrão.
+        // Sem chave, a IDE fica limpa e a escolha de ferramenta é irrelevante.
+        TipoFerramenta tipoFerramentaSelecionada = usarChavePadraoDoProduto
+                ? perguntarSobreTipoFerramenta()
+                : TipoFerramenta.LEGADA;
         Path diretorioAtalhos = null;
         if (gerarAtalhos) {
             diretorioAtalhos = escolherLocalAtalhos(caminhoRaiz);
